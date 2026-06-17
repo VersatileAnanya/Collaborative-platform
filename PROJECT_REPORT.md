@@ -22,7 +22,7 @@
 | **College / Organization** | [COLLEGE NAME] |
 | **Department** | [DEPARTMENT] |
 | **Submission Date** | June 2026 |
-| **GitHub Repository** | https://github.com/VersatileAnanya/Collaborative-platforma |
+| **GitHub Repository** | https://github.com/VersatileAnanya/Collaborative-platform |
 | **License** | MIT |
 | **Version** | 1.0.0 |
 
@@ -815,7 +815,7 @@ All 14 core test cases passed successfully during integration testing. No critic
 
 ### Repository Link
 
-> 🔗 **https://github.com/VersatileAnanya/Collaborative-platforma**
+> 🔗 **https://github.com/VersatileAnanya/Collaborative-platform**
 
 ---
 
@@ -844,7 +844,7 @@ All 14 core test cases passed successfully during integration testing. No critic
 **Step 1 — Clone the Repository**
 
 ```bash
-git clone https://github.com/VersatileAnanya/Collaborative-platforma
+git clone https://github.com/VersatileAnanya/Collaborative-platform
 cd collaborative-platform
 ```
 
