@@ -23,9 +23,9 @@ function OutputPanel({ result, isRunning, onClear }) {
   const hasOutput = result && (result.stdout || result.stderr || result.compile_output)
 
   return (
-    <div className="bg-retro-surface border-t-2 border-retro-border flex flex-col" style={{ minHeight: isCollapsed ? 'auto' : '160px', maxHeight: '300px' }}>
+    <div className="app-panel border-t-2 border-retro-border flex flex-col" style={{ minHeight: isCollapsed ? 'auto' : '160px', maxHeight: '300px' }}>
       {/* Console Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-retro-border bg-retro-panel">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-retro-border/70 bg-retro-panel/80">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -75,7 +75,7 @@ function OutputPanel({ result, isRunning, onClear }) {
           {result?.stdout && (
             <div className="mb-3">
               <div className="text-emerald-400 text-[9px] tracking-widest uppercase font-bold mb-1 opacity-80">STDOUT</div>
-              <pre className="text-retro-text whitespace-pre-wrap break-words bg-retro-bg rounded p-3 border border-retro-border">
+              <pre className="text-retro-text whitespace-pre-wrap break-words bg-retro-bg rounded-lg p-3 border border-retro-border/70">
                 {result.stdout}
               </pre>
             </div>

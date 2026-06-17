@@ -5,6 +5,8 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
+const helmet = require('helmet');
+const { DSA_PROBLEMS } = require('./problems');
 
 // JDoodle API language mapping (free: 200 credits/day, email signup only)
 const JDOODLE_LANGUAGES = {
@@ -34,8 +36,11 @@ app.use(cors({
   credentials: true
 }));
 
-// Parse JSON request bodies
-app.use(express.json());
+// Security headers
+app.use(helmet());
+
+// Parse JSON request bodies with size limits
+app.use(express.json({ limit: '1mb' }));
 
 const io = socketIo(server, {
   cors: {
@@ -66,13 +71,16 @@ io.on('connection', (socket) => {
   socket.on('join-room', ({ roomId, username, language }) => {
     console.log(`👤 ${username} attempting to join room: ${roomId}`);
 
-    // Create room if it doesn't exist
+      // Create room if it doesn't exist
     if (!rooms.has(roomId)) {
       const initialLanguage = language || 'javascript';
       rooms.set(roomId, {
         users: [],
-        code: '// Welcome to CodeSync!\n// Start collaborating by typing here...\n\nconsole.log("Hello, world!");',
-        language: initialLanguage
+        code: '// Welcome to Collaborative Platform!\n// Start collaborating by typing here...\n\nconsole.log("Hello, world!");',
+        language: initialLanguage,
+        currentProblem: null,
+        solvedProblems: new Set(),
+        problemBoilerplates: {}
       });
       console.log(`🏠 Created new room: ${roomId} with language: ${initialLanguage}`);
     }
@@ -106,6 +114,7 @@ io.on('connection', (socket) => {
       id: socket.id,
       username,
       color: userColor,
+      role: isHost ? 'owner' : 'member',
       isHost,
       isPaused: false,
       cursor: null
@@ -245,6 +254,158 @@ io.on('connection', (socket) => {
     console.log(`▶️ ${targetUsername} unpaused by ${host.username} in room ${roomId}`);
   });
 
+  // Handle kick user (owner only)
+  socket.on('kick-user', ({ roomId, targetUsername }) => {
+    if (!rooms.has(roomId)) return;
+    const room = rooms.get(roomId);
+
+    const owner = room.users.find(u => u.id === socket.id);
+    if (!owner || owner.role !== 'owner') return;
+
+    const target = room.users.find(u => u.username === targetUsername);
+    if (!target || target.role === 'owner') return;
+
+    io.to(roomId).emit('user-kicked', { targetUsername, users: room.users, kickedBy: owner.username });
+    handleUserLeave(socket, roomId, targetUsername, true, target.id);
+    console.log(`👢 ${targetUsername} kicked by ${owner.username} from room ${roomId}`);
+  });
+
+  // Handle transfer ownership (owner only)
+  socket.on('transfer-ownership', ({ roomId, targetUsername }) => {
+    if (!rooms.has(roomId)) return;
+    const room = rooms.get(roomId);
+
+    const currentOwner = room.users.find(u => u.id === socket.id);
+    if (!currentOwner || currentOwner.role !== 'owner') return;
+
+    const target = room.users.find(u => u.username === targetUsername);
+    if (!target || target.role === 'owner') return;
+
+    currentOwner.role = 'member';
+    currentOwner.isHost = false;
+    target.role = 'owner';
+    target.isHost = true;
+
+    io.to(roomId).emit('ownership-transferred', { 
+      newOwner: targetUsername, 
+      previousOwner: currentOwner.username,
+      users: room.users 
+    });
+    console.log(`👑 Ownership transferred from ${currentOwner.username} to ${targetUsername} in room ${roomId}`);
+  });
+
+  // Problem-related handlers
+  socket.on('get-problems', () => {
+    socket.emit('problems-list', { problems: DSA_PROBLEMS });
+  });
+
+  socket.on('select-problem', ({ roomId, problemId }) => {
+    if (!rooms.has(roomId)) return;
+    const room = rooms.get(roomId);
+
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user || user.role !== 'owner') return;
+
+    const problem = DSA_PROBLEMS.find(p => p.id === problemId);
+    if (!problem) return;
+
+    room.currentProblem = problem;
+    const boilerplate = problem.boilerplate[room.language] || problem.boilerplate.javascript;
+    room.code = boilerplate;
+    room.problemBoilerplates[problem.id] = boilerplate;
+
+    io.to(roomId).emit('problem-selected', { 
+      problem,
+      code: boilerplate,
+      solvedBy: Array.from(room.solvedProblems)
+    });
+    console.log(`📋 Problem "${problem.title}" selected in room ${roomId} by ${user.username}`);
+  });
+
+  socket.on('select-random-problem', ({ roomId }) => {
+    if (!rooms.has(roomId)) return;
+    const room = rooms.get(roomId);
+
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user || user.role !== 'owner') return;
+
+    const unsolvedProblems = DSA_PROBLEMS.filter(p => !room.solvedProblems.has(p.id));
+    const problemPool = unsolvedProblems.length > 0 ? unsolvedProblems : DSA_PROBLEMS;
+    const randomProblem = problemPool[Math.floor(Math.random() * problemPool.length)];
+
+    room.currentProblem = randomProblem;
+    const boilerplate = randomProblem.boilerplate[room.language] || randomProblem.boilerplate.javascript;
+    room.code = boilerplate;
+    room.problemBoilerplates[randomProblem.id] = boilerplate;
+
+    io.to(roomId).emit('problem-selected', { 
+      problem: randomProblem,
+      code: boilerplate,
+      solvedBy: Array.from(room.solvedProblems)
+    });
+    console.log(`🎲 Random problem "${randomProblem.title}" selected in room ${roomId} by ${user.username}`);
+  });
+
+  socket.on('submit-solution', ({ roomId, code, language }) => {
+    if (!rooms.has(roomId)) return;
+    const room = rooms.get(roomId);
+
+    if (!room.currentProblem) {
+      socket.emit('submission-result', { success: false, message: 'No problem selected!' });
+      return;
+    }
+
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user) return;
+
+    socket.emit('submission-result', { 
+      success: true, 
+      problemId: room.currentProblem.id,
+      problemTitle: room.currentProblem.title,
+      message: 'Solution submitted for verification!'
+    });
+    console.log(`✅ Solution submitted by ${user.username} for problem "${room.currentProblem.title}"`);
+  });
+
+  socket.on('mark-solved', ({ roomId, problemId }) => {
+    if (!rooms.has(roomId)) return;
+    const room = rooms.get(roomId);
+
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user || user.role !== 'owner') return;
+
+    const problem = DSA_PROBLEMS.find(p => p.id === problemId);
+    if (!problem) return;
+
+    room.solvedProblems.add(problemId);
+
+    io.to(roomId).emit('problem-solved', { 
+      problemId,
+      problemTitle: problem.title,
+      solvedBy: user.username,
+      solvedProblems: Array.from(room.solvedProblems)
+    });
+    console.log(`🏆 Problem "${problem.title}" marked as solved by ${user.username}`);
+  });
+
+  socket.on('reset-problem', ({ roomId }) => {
+    if (!rooms.has(roomId)) return;
+    const room = rooms.get(roomId);
+
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user || user.role !== 'owner') return;
+
+    if (room.currentProblem) {
+      const boilerplate = room.currentProblem.boilerplate[room.language] || room.currentProblem.boilerplate.javascript;
+      room.code = boilerplate;
+      io.to(roomId).emit('problem-reset', { 
+        code: boilerplate,
+        problem: room.currentProblem
+      });
+      console.log(`🔄 Problem "${room.currentProblem.title}" reset by ${user.username}`);
+    }
+  });
+
   // Handle leaving room
   socket.on('leave-room', ({ roomId, username }) => {
     handleUserLeave(socket, roomId, username);
@@ -259,7 +420,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  function handleUserLeave(socket, roomId, username) {
+  function handleUserLeave(socket, roomId, username, isKicked = false, kickedSocketId = null) {
     if (!rooms.has(roomId)) return;
 
     const room = rooms.get(roomId);
@@ -268,6 +429,15 @@ io.on('connection', (socket) => {
     if (userIndex !== -1) {
       room.users.splice(userIndex, 1);
       socket.leave(roomId);
+
+      // If kicked, disconnect the kicked user's socket
+      if (isKicked && kickedSocketId) {
+        const kickedSocket = io.sockets.sockets.get(kickedSocketId);
+        if (kickedSocket) {
+          kickedSocket.emit('kicked-from-room', { roomId });
+          kickedSocket.leave(roomId);
+        }
+      }
 
       // Clear any pending cleanup timeout
       if (room.cleanupTimeout) {
@@ -287,20 +457,23 @@ io.on('connection', (socket) => {
           }
         }, 60000); // 1 minute timeout before room cleanup
       } else {
-        // If the host left, make the first remaining user the new host
+        // If the owner left, make the first remaining user the new owner
         if (userIndex === 0 && room.users.length > 0) {
           room.users[0].isHost = true;
-          console.log(`👑 ${room.users[0].username} is now the host of room ${roomId}`);
+          room.users[0].role = 'owner';
+          io.to(roomId).emit('new-owner', { newOwner: room.users[0].username, users: room.users });
+          console.log(`👑 ${room.users[0].username} is now the owner of room ${roomId}`);
         }
 
         // Notify remaining users
         socket.to(roomId).emit('user-left', {
           username,
-          users: room.users
+          users: room.users,
+          isKicked
         });
       }
 
-      console.log(`👋 ${username} left room ${roomId} (${room.users.length}/4 users remaining)`);
+      console.log(`👋 ${username} ${isKicked ? 'kicked from' : 'left'} room ${roomId} (${room.users.length}/4 users remaining)`);
     }
   }
 });
@@ -320,6 +493,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// API endpoint to get problems list
+app.get('/api/problems', (req, res) => {
+  res.json({ problems: DSA_PROBLEMS });
+});
+
 // Code execution endpoint via JDoodle (free: 200 credits/day)
 app.post('/api/execute', async (req, res) => {
   try {
@@ -327,6 +505,10 @@ app.post('/api/execute', async (req, res) => {
 
     if (!code || !language) {
       return res.status(400).json({ error: 'code and language are required' });
+    }
+
+    if (code.length > 50000) {
+      return res.status(400).json({ error: 'Code exceeds maximum length of 50,000 characters' });
     }
 
     const jdoodleLang = JDOODLE_LANGUAGES[language];
@@ -426,11 +608,9 @@ app.post('/api/execute', async (req, res) => {
     
     res.status(500).json({ error: 'Code execution failed', details: err.message });
   }
-    res.status(500).json({ error: 'Code execution failed', details: err.message });
-  }
 });
 
-// AI Code Analysis endpoint via Google Gemini
+// AI Code Analysis endpoint via OpenRouter
 app.post('/api/analyze', async (req, res) => {
   try {
     const { code, language, compilerOutput } = req.body;
@@ -439,14 +619,20 @@ app.post('/api/analyze', async (req, res) => {
       return res.status(400).json({ error: 'code and language are required' });
     }
 
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
+    if (code.length > 50000) {
+      return res.status(400).json({ error: 'Code exceeds maximum length of 50,000 characters' });
+    }
+
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const openRouterModel = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash';
+
+    if (!openRouterKey) {
       return res.status(500).json({
-        error: 'Gemini API is not configured. Add GEMINI_API_KEY to server/.env',
+        error: 'OpenRouter API is not configured. Add OPENROUTER_API_KEY to server/.env',
       });
     }
 
-    const systemPrompt = `You are an AI programming assistant embedded inside a real-time collaborative coding platform called CODE SYNC.
+    const systemPrompt = `You are an AI programming assistant embedded inside a real-time collaborative coding platform called Collaborative Platform.
 Analyze the provided code and compiler output carefully.
 
 Your responsibilities:
@@ -474,34 +660,54 @@ Compiler Output:
 ${compilerOutput || 'No compiler output available (code not yet executed).'}`;
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      'https://openrouter.ai/api/v1/chat/completions',
       {
-        contents: [{
-          parts: [
-            { text: systemPrompt + '\n\n' + userPrompt }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 2048,
-        },
+        model: openRouterModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 2048,
       },
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${openRouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER || 'http://localhost:5173',
+          'X-OpenRouter-Title': process.env.OPENROUTER_APP_TITLE || 'Collaborative Platform',
+        },
         timeout: 30000,
       }
     );
 
     const result = response.data;
-    const analysisText = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No analysis generated.';
+    const analysisText = result?.choices?.[0]?.message?.content || 'No analysis generated.';
 
     res.json({ analysis: analysisText });
   } catch (err) {
     console.error('\u274c AI analysis error:', err.message);
     if (err.response) {
+      const status = err.response.status;
+      const details = err.response.data?.error?.message || err.response.data;
+
+      if (status === 429) {
+        return res.status(429).json({
+          error: 'OpenRouter rate limit reached',
+          details: 'The selected OpenRouter model is currently rate-limited or out of quota. Try again later, add credits, or switch OPENROUTER_MODEL to another available model.',
+        });
+      }
+
+      if (status === 401 || status === 403) {
+        return res.status(status).json({
+          error: 'OpenRouter authentication failed',
+          details: 'Check OPENROUTER_API_KEY in server/.env and restart the server.',
+        });
+      }
+
       return res.status(err.response.status).json({
-        error: 'Gemini API error',
-        details: err.response.data?.error?.message || err.response.data,
+        error: 'OpenRouter API error',
+        details,
       });
     }
     res.status(500).json({ error: 'AI analysis failed', details: err.message });
@@ -509,7 +715,7 @@ ${compilerOutput || 'No compiler output available (code not yet executed).'}`;
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 CodeSync server running on port ${PORT}`);
+  console.log(`🚀 Collaborative Platform server running on port ${PORT}`);
   console.log(`🌐 Socket.io enabled with CORS for localhost:5173`);
 });
 

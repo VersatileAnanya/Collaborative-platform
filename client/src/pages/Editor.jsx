@@ -9,12 +9,14 @@ import ChatPanel from '../components/ChatPanel'
 import LanguageSelector from '../components/LanguageSelector'
 import OutputPanel from '../components/OutputPanel'
 import AnalysisPanel from '../components/AnalysisPanel'
+import ProblemPanel from '../components/ProblemPanel'
 import SUPPORTED_LANGUAGES from '../constants/languages'
 import { getBoilerplate } from '../constants/boilerplates'
 import { useTheme } from '../components/useTheme'
 import { 
   Copy, Download, Maximize2, Minimize2, Settings, 
-  Keyboard, Save, Check, Wifi, WifiOff
+  Keyboard, Save, Check, Wifi, WifiOff, BookOpen,
+  Users, MessageSquare, Terminal, ChevronRight, Menu, Crown
 } from 'lucide-react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -50,6 +52,14 @@ function EditorPage() {
   const [lastSaved, setLastSaved] = useState(null)
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
+  const [currentProblem, setCurrentProblem] = useState(null)
+  const [solvedProblems, setSolvedProblems] = useState([])
+  const [showProblemPanel, setShowProblemPanel] = useState(true)
+  const [showChatPanel, setShowChatPanel] = useState(true)
+  const [chatFullscreen, setChatFullscreen] = useState(false)
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(250)
+  const [activeMobileTab, setActiveMobileTab] = useState('editor')
+  const [mobileBottomSheet, setMobileBottomSheet] = useState(null)
   const { theme } = useTheme()
   
   // Refs
@@ -160,9 +170,13 @@ function EditorPage() {
       toast.success(`JOINED ROOM ${roomId}!`)
       
       // Add welcome message
+      const currentUserData = data.users?.find(u => u.username === username)
+      const roleMessage = currentUserData?.role === 'owner' || currentUserData?.isHost 
+        ? 'the ROOM OWNER' 
+        : 'a MEMBER'
       setChatMessages(prev => [...prev, {
         username: 'SYSTEM',
-        message: `Welcome to room ${roomId}! You are ${data.users?.find(u => u.username === username)?.isHost ? 'the HOST' : 'a PLAYER'}.`,
+        message: `Welcome to room ${roomId}! You are ${roleMessage}.`,
         timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
         isSystem: true
       }])
@@ -187,7 +201,7 @@ function EditorPage() {
       
       setChatMessages(prev => [...prev, {
         username: 'SYSTEM',
-        message: `${data.username} joined the room! ${data.isHost ? '(HOST)' : ''}`,
+        message: `${data.username} joined the room! ${data.isHost ? '(OWNER)' : '(MEMBER)'}`,
         timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
         isSystem: true
       }])
@@ -283,8 +297,106 @@ function EditorPage() {
       }
     }
 
+    const handleUserKicked = (data) => {
+      setUsers(data.users || [])
+      toast.error(`${data.targetUsername} WAS KICKED BY ${data.kickedBy}!`)
+      setChatMessages(prev => [...prev, {
+        username: 'SYSTEM',
+        message: `${data.targetUsername} was kicked by ${data.kickedBy}.`,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        isSystem: true
+      }])
+    }
+
+    const handleKickedFromRoom = (data) => {
+      toast.error('YOU HAVE BEEN KICKED FROM THE ROOM!')
+      setTimeout(() => navigate('/'), 2000)
+    }
+
+    const handleOwnershipTransferred = (data) => {
+      setUsers(data.users || [])
+      if (data.newOwner === username) {
+        toast.success('YOU ARE NOW THE ROOM OWNER!')
+      } else {
+        toast(`${data.newOwner} IS NOW THE ROOM OWNER`, { icon: '👑' })
+      }
+      setChatMessages(prev => [...prev, {
+        username: 'SYSTEM',
+        message: `Ownership transferred from ${data.previousOwner} to ${data.newOwner}.`,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        isSystem: true
+      }])
+    }
+
+    const handleNewOwner = (data) => {
+      setUsers(data.users || [])
+      toast(`${data.newOwner} IS NOW THE ROOM OWNER`, { icon: '👑' })
+      setChatMessages(prev => [...prev, {
+        username: 'SYSTEM',
+        message: `${data.newOwner} is now the room owner.`,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        isSystem: true
+      }])
+    }
+
     const handleActionBlocked = (data) => {
       toast.error(data.message || 'ACTION BLOCKED!')
+    }
+
+    const handleProblemSelected = (data) => {
+      console.log('Problem selected:', data.problem)
+      setCurrentProblem(data.problem)
+      if (data.solvedBy) {
+        setSolvedProblems(data.solvedBy)
+      }
+      if (data.code) {
+        isCodeSyncingRef.current = true
+        setCode(data.code)
+        setTimeout(() => {
+          isCodeSyncingRef.current = false
+        }, 100)
+      }
+      toast(`PROBLEM: ${data.problem.title}`, { icon: '📋' })
+      
+      setChatMessages(prev => [...prev, {
+        username: 'SYSTEM',
+        message: `Problem selected: ${data.problem.title} (${data.problem.difficulty})`,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        isSystem: true
+      }])
+    }
+
+    const handleProblemSolved = (data) => {
+      console.log('Problem solved:', data)
+      setSolvedProblems(data.solvedProblems)
+      toast.success(`${data.problemTitle} SOLVED BY ${data.solvedBy}! 🏆`)
+      
+      setChatMessages(prev => [...prev, {
+        username: 'SYSTEM',
+        message: `🎉 ${data.problemTitle} solved by ${data.solvedBy}!`,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        isSystem: true
+      }])
+    }
+
+    const handleProblemReset = (data) => {
+      console.log('Problem reset')
+      if (data.code) {
+        isCodeSyncingRef.current = true
+        setCode(data.code)
+        setTimeout(() => {
+          isCodeSyncingRef.current = false
+        }, 100)
+      }
+      toast('PROBLEM RESET TO BOILERPLATE')
+    }
+
+    const handleSubmissionResult = (data) => {
+      if (data.success) {
+        toast.success(data.message)
+      } else {
+        toast.error(data.message)
+      }
     }
 
     // Register event listeners
@@ -301,7 +413,15 @@ function EditorPage() {
     socket.on('chat-received', handleChatReceived)
     socket.on('user-paused', handleUserPaused)
     socket.on('user-unpaused', handleUserUnpaused)
+    socket.on('user-kicked', handleUserKicked)
+    socket.on('kicked-from-room', handleKickedFromRoom)
+    socket.on('ownership-transferred', handleOwnershipTransferred)
+    socket.on('new-owner', handleNewOwner)
     socket.on('action-blocked', handleActionBlocked)
+    socket.on('problem-selected', handleProblemSelected)
+    socket.on('problem-solved', handleProblemSolved)
+    socket.on('problem-reset', handleProblemReset)
+    socket.on('submission-result', handleSubmissionResult)
 
     // Connect if already connected
     if (socket.connected) {
@@ -335,7 +455,15 @@ function EditorPage() {
       socket.off('chat-received', handleChatReceived)
       socket.off('user-paused', handleUserPaused)
       socket.off('user-unpaused', handleUserUnpaused)
+      socket.off('user-kicked', handleUserKicked)
+      socket.off('kicked-from-room', handleKickedFromRoom)
+      socket.off('ownership-transferred', handleOwnershipTransferred)
+      socket.off('new-owner', handleNewOwner)
       socket.off('action-blocked', handleActionBlocked)
+      socket.off('problem-selected', handleProblemSelected)
+      socket.off('problem-solved', handleProblemSolved)
+      socket.off('problem-reset', handleProblemReset)
+      socket.off('submission-result', handleSubmissionResult)
       
       socketService.disconnect()
     }
@@ -385,12 +513,19 @@ function EditorPage() {
   const handleLanguageChange = (newLanguage) => {
     setLanguage(newLanguage)
 
-    // Set the boilerplate code for the new language
-    const boilerplate = getBoilerplate(newLanguage)
+    // If there's a current problem, use its boilerplate
+    let boilerplate;
+    if (currentProblem?.boilerplate?.[newLanguage]) {
+      boilerplate = currentProblem.boilerplate[newLanguage]
+    } else if (currentProblem?.boilerplate?.javascript) {
+      boilerplate = currentProblem.boilerplate.javascript
+    } else {
+      boilerplate = getBoilerplate(newLanguage)
+    }
+    
     setCode(boilerplate)
 
     if (socketRef.current?.connected) {
-      // Broadcast the language change with the new boilerplate code
       socketRef.current.emit('language-change', { roomId, language: newLanguage, code: boilerplate })
     }
   }
@@ -487,6 +622,49 @@ function EditorPage() {
     }
   }
 
+  const handleKickUser = (targetUsername) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('kick-user', { roomId, targetUsername })
+    }
+  }
+
+  const handleTransferOwnership = (targetUsername) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('transfer-ownership', { roomId, targetUsername })
+    }
+  }
+
+  // Handle problem selection
+  const handleSelectProblem = (problemId) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('select-problem', { roomId, problemId })
+    }
+  }
+
+  const handleSelectRandomProblem = () => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('select-random-problem', { roomId })
+    }
+  }
+
+  const handleResetProblem = () => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('reset-problem', { roomId })
+    }
+  }
+
+  const handleMarkSolved = (problemId) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('mark-solved', { roomId, problemId })
+    }
+  }
+
+  const handleSubmitSolution = () => {
+    if (socketRef.current?.connected && currentProblem) {
+      socketRef.current.emit('submit-solution', { roomId, code, language })
+    }
+  }
+
   // Handle sending chat messages
   const handleSendMessage = (message) => {
     if (socketRef.current?.connected && message.trim()) {
@@ -525,20 +703,23 @@ function EditorPage() {
         { token: 'constant', foreground: 'fb923c' },
       ],
       colors: {
-        'editor.background': '#0f172a',
-        'editor.foreground': '#e2e8f0',
-        'editor.lineHighlightBackground': '#1e293b',
-        'editorCursor.foreground': '#22d3ee',
-        'editor.selectionBackground': '#3b82f680',
-        'editorLineNumber.foreground': '#64748b',
-        'editorLineNumber.activeForeground': '#22d3ee',
-        'editor.selectionHighlightBackground': '#3b82f640',
-        'editorIndentGuide.background': '#334155',
-        'editorIndentGuide.activeBackground': '#475569',
-        'editorBracketMatch.background': '#3b82f640',
-        'editorBracketMatch.border': '#22d3ee',
-        'editorGutter.background': '#0f172a',
-        'minimap.background': '#0f172a',
+        'editor.background': '#070c18',
+        'editor.foreground': '#e5edf6',
+        'editor.lineHighlightBackground': '#132033',
+        'editorCursor.foreground': '#2dd4bf',
+        'editor.selectionBackground': '#0f766e80',
+        'editorLineNumber.foreground': '#60718c',
+        'editorLineNumber.activeForeground': '#2dd4bf',
+        'editor.selectionHighlightBackground': '#2dd4bf30',
+        'editorIndentGuide.background': '#26364d',
+        'editorIndentGuide.activeBackground': '#3d506d',
+        'editorBracketMatch.background': '#2dd4bf2f',
+        'editorBracketMatch.border': '#2dd4bf',
+        'editorGutter.background': '#070c18',
+        'minimap.background': '#070c18',
+        'scrollbarSlider.background': '#33415580',
+        'scrollbarSlider.hoverBackground': '#47556990',
+        'scrollbarSlider.activeBackground': '#64748baa',
       }
     });
 
@@ -561,17 +742,17 @@ function EditorPage() {
       ],
       colors: {
         'editor.background': '#ffffff',
-        'editor.foreground': '#1e293b',
-        'editor.lineHighlightBackground': '#f1f5f9',
-        'editorCursor.foreground': '#2563eb',
-        'editor.selectionBackground': '#bfdbfe',
+        'editor.foreground': '#0f172a',
+        'editor.lineHighlightBackground': '#eef6fb',
+        'editorCursor.foreground': '#087ea4',
+        'editor.selectionBackground': '#bae6fd',
         'editorLineNumber.foreground': '#94a3b8',
-        'editorLineNumber.activeForeground': '#2563eb',
-        'editor.selectionHighlightBackground': '#dbeafe',
+        'editorLineNumber.activeForeground': '#087ea4',
+        'editor.selectionHighlightBackground': '#cffafe',
         'editorIndentGuide.background': '#e2e8f0',
         'editorIndentGuide.activeBackground': '#cbd5e1',
-        'editorBracketMatch.background': '#bfdbfe80',
-        'editorBracketMatch.border': '#2563eb',
+        'editorBracketMatch.background': '#bae6fd80',
+        'editorBracketMatch.border': '#087ea4',
         'editorGutter.background': '#f8fafc',
         'minimap.background': '#ffffff',
         'editor.findMatchBackground': '#fde04780',
@@ -583,7 +764,7 @@ function EditorPage() {
         'input.foreground': '#1e293b',
         'dropdown.background': '#ffffff',
         'dropdown.border': '#cbd5e1',
-        'list.activeSelectionBackground': '#dbeafe',
+        'list.activeSelectionBackground': '#e0f2fe',
         'list.hoverBackground': '#f1f5f9',
         'scrollbar.shadow': '#00000010',
         'scrollbarSlider.background': '#cbd5e180',
@@ -749,54 +930,107 @@ function EditorPage() {
   }
 
   return (
-    <div className={`h-screen flex flex-col bg-retro-bg transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
-      {/* Header */}
+    <div className={`h-screen flex flex-col bg-retro-bg text-retro-text transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+      {/* Fullscreen Exit Button */}
+      {isFullscreen && (
+        <div className="absolute top-4 right-4 z-[60]">
+          <button
+            onClick={toggleFullscreen}
+            className="p-3 rounded-lg bg-retro-surface/80 backdrop-blur-sm border border-retro-cyan/30 hover:bg-retro-panel transition-all shadow-lg"
+            title="Exit Fullscreen (F11)"
+          >
+            <Minimize2 className="w-5 h-5 text-retro-cyan" />
+          </button>
+        </div>
+      )}
+
+      {/* Header - Desktop Only */}
       {!isFullscreen && (
-        <RoomHeader
-          roomId={roomId}
-          users={users}
-          currentUser={username}
-          isConnected={isConnected}
-          onLeaveRoom={handleLeaveRoom}
-        />
+        <div className="hidden lg:block">
+          <RoomHeader
+            roomId={roomId}
+            users={users}
+            currentUser={username}
+            isConnected={isConnected}
+            onLeaveRoom={handleLeaveRoom}
+          />
+        </div>
+      )}
+
+      {/* Mobile Header */}
+      {!isFullscreen && (
+        <div className="lg:hidden app-header flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileBottomSheet('users')}
+              className="icon-button p-2"
+            >
+              <Users className="w-5 h-5 text-retro-cyan" />
+            </button>
+            <div>
+              <div className="text-sm text-retro-cyan font-bold">{roomId}</div>
+              <div className="text-xs text-retro-text/50 flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              currentLanguage={language}
+              onLanguageChange={handleLanguageChange}
+              languages={SUPPORTED_LANGUAGES}
+              compact
+            />
+            <button
+              onClick={handleLeaveRoom}
+              className="px-4 py-2 bg-red-500/20 text-red-400 text-xs rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-colors"
+            >
+              Leave
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Mobile Sidebar Overlay */}
-        {!isSidebarCollapsed && (
+        {/* Mobile Bottom Sheet Overlay */}
+        {mobileBottomSheet && (
           <div 
-            className="md:hidden absolute inset-0 bg-black/50 z-10 backdrop-blur-sm transition-opacity duration-300"
-            onClick={() => setIsSidebarCollapsed(true)}
+            className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+            onClick={() => setMobileBottomSheet(null)}
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar - Desktop Only */}
         <div className={`
-          bg-retro-surface border-r-2 border-retro-border transition-all duration-300 ease-out flex flex-col overflow-hidden
-          absolute md:relative z-20 h-full md:h-auto shadow-2xl md:shadow-none
-          ${isSidebarCollapsed ? 'w-0 border-r-0 opacity-0' : 'w-[280px] md:w-80 opacity-100'}
+          hidden lg:flex app-surface border-r transition-all duration-300 flex-col overflow-hidden
+          ${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-72 opacity-100'}
         `}>
+          {/* Sidebar Toggle */}
+          <div className="flex items-center justify-center py-1.5 border-b border-retro-border/50 bg-retro-panel/50">
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="icon-button p-1.5"
+            >
+              <ChevronRight className={`w-4 h-4 transition-transform ${!isSidebarCollapsed ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+          
           {!isSidebarCollapsed && (
             <>
-              {/* Language Selector */}
-              <div className="p-3 md:p-4 border-b-2 border-retro-border">
-                <LanguageSelector
-                  currentLanguage={language}
-                  onLanguageChange={handleLanguageChange}
-                  languages={SUPPORTED_LANGUAGES}
-                />
-              </div>
-
-              {/* User List */}
-              <div className="p-3 md:p-4 border-b-2 border-retro-border">
+              {/* User List - Scrollable */}
+              <div className="p-4 border-b border-retro-border/70 flex-shrink-0 max-h-[210px] overflow-y-auto custom-scrollbar">
                 <UserList
-                users={users}
-                currentUser={username}
-                isHost={users.find(u => u.username === username)?.isHost}
-                onPauseUser={handlePauseUser}
-                onUnpauseUser={handleUnpauseUser}
-              />
+                  users={users}
+                  currentUser={username}
+                  isHost={users.find(u => u.username === username)?.isHost}
+                  onPauseUser={handlePauseUser}
+                  onUnpauseUser={handleUnpauseUser}
+                  onKickUser={handleKickUser}
+                  onTransferOwnership={handleTransferOwnership}
+                />
               </div>
 
               {/* Chat Panel */}
@@ -805,107 +1039,94 @@ function EditorPage() {
                   messages={chatMessages}
                   onSendMessage={handleSendMessage}
                   currentUser={username}
+                  onFullscreen={chatFullscreen ? () => setChatFullscreen(false) : () => setChatFullscreen(true)}
+                  isFullscreen={false}
                 />
               </div>
             </>
           )}
         </div>
 
-        {/* Toggle Sidebar Button */}
-        <div className="hidden md:flex flex-col items-center justify-center bg-retro-surface border-r border-retro-border relative z-10 transition-all duration-300">
-          <button
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="pixel-button pixel-button--small hover:bg-retro-cyan/10 hover:border-retro-cyan transition-all duration-200"
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <span className="transition-transform duration-300" style={{ transform: isSidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}>
-              ←
-            </span>
-          </button>
-        </div>
-
-        {/* Mobile Toggle Button */}
-        <div className="md:hidden absolute left-0 top-1/2 -translate-y-1/2 z-0 transition-all duration-300">
-           {isSidebarCollapsed && (
-             <button
-              onClick={() => setIsSidebarCollapsed(false)}
-              className="pixel-button pixel-button--small py-4 px-1 rounded-l-none border-l-0 shadow-lg bg-retro-surface hover:bg-retro-cyan/10 transition-all duration-200"
-              title="Expand sidebar"
-             >
-               →
-             </button>
-           )}
-        </div>
-
-        {/* Editor Area */}
+        {/* Main Area - Editor + Bottom Panels */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Editor Header */}
-          <div className="bg-retro-panel border-b border-retro-border p-2 md:p-3 flex flex-wrap items-center justify-between gap-y-2 gap-x-4 text-[9px] md:text-[10px] tracking-wider uppercase">
-            <div className="text-retro-text flex flex-wrap items-center gap-2 md:gap-4">
-              <span className="opacity-80 flex items-center gap-1">
-                <span className="hidden sm:inline">LANGUAGE:</span> 
-                <span className="text-retro-cyan font-bold opacity-100">{getCurrentLanguageLabel()}</span>
-              </span>
-              
+          {/* Editor Toolbar */}
+          <div className="app-header flex items-center justify-between gap-3 px-4 py-2">
+            {/* Left Section */}
+            <div className="flex items-center gap-4">
+              {/* Language & Problem */}
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1.5 bg-retro-cyan/10 text-retro-cyan text-xs font-bold rounded-lg border border-retro-cyan/40 shadow-sm">
+                  {getCurrentLanguageLabel()}
+                </span>
+                
+                {currentProblem && (
+                  <button
+                    onClick={() => setShowProblemPanel(!showProblemPanel)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-retro-yellow/10 text-retro-yellow border border-retro-yellow/40 hover:bg-retro-yellow/20 transition-colors shadow-sm"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span className="text-xs font-bold">{currentProblem.title}</span>
+                    <span className="text-[10px] opacity-70">({currentProblem.difficulty})</span>
+                  </button>
+                )}
+              </div>
+
               {/* Connection Status */}
-              <span className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all duration-300 ${
-                isConnected 
-                  ? 'text-emerald-400 bg-emerald-400/10' 
-                  : 'text-red-400 bg-red-400/10'
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${
+                isConnected ? 'text-emerald-500 dark:text-emerald-400 bg-emerald-400/10 border-emerald-400/30' : 'text-red-500 dark:text-red-400 bg-red-400/10 border-red-400/30'
               }`}>
-                {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
-              </span>
+                {isConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </div>
 
               {/* Save Status */}
               {isSaving ? (
-                <span className="text-amber-400 flex items-center gap-1">
-                  <Save className="w-3 h-3 animate-pulse" />
-                  SAVING...
+                <span className="text-amber-400 flex items-center gap-2 text-xs">
+                  <Save className="w-4 h-4 animate-pulse" />
+                  Saving...
                 </span>
               ) : lastSaved && (
-                <span className="text-emerald-400/60 flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  {formatLastSaved()}
+                <span className="text-emerald-400/60 flex items-center gap-2 text-xs">
+                  <Check className="w-4 h-4" />
+                  Saved
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-3 md:gap-4">
-              {/* Status Bar */}
-              <div className="text-retro-text/60 flex gap-3">
+            {/* Right Section */}
+            <div className="flex items-center gap-2">
+              {/* Cursor Position */}
+              <div className="hidden md:flex items-center gap-3 text-xs text-retro-text/50 mr-3">
                 <span>Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
-                <span className="hidden sm:inline">|</span>
-                <span className="hidden sm:inline">Ln {code.split('\n').length}</span>
-                <span className="hidden md:inline">|</span>
-                <span className="hidden md:inline">{code.length} chars</span>
+                <span>|</span>
+                <span>{code.split('\n').length} lines</span>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
+              {/* Tool Buttons */}
+              <div className="flex items-center gap-1">
                 {/* Settings */}
                 <div className="relative">
                   <button
                     onClick={() => setShowSettings(!showSettings)}
-                    className="pixel-button pixel-button--small hover:bg-retro-cyan/10 transition-all duration-200"
-                    title="Editor Settings"
+                    className="icon-button p-2"
+                    title="Settings"
                   >
-                    <Settings className="w-3 h-3" />
+                    <Settings className="w-4 h-4" />
                   </button>
                   {showSettings && (
-                    <div className="absolute right-0 top-full mt-2 bg-retro-surface border border-retro-border rounded-lg p-3 shadow-xl z-30 min-w-[200px] animate-fade-in">
-                      <div className="text-retro-text text-[9px] mb-2 uppercase tracking-wider">Font Size</div>
-                      <div className="flex items-center gap-2">
+                    <div className="absolute right-0 top-full mt-2 app-panel rounded-lg p-4 shadow-xl z-30 min-w-[200px] animate-fade-in">
+                      <div className="text-xs text-retro-text/70 mb-3 uppercase tracking-wider font-bold">Font Size</div>
+                      <div className="flex items-center justify-center gap-4">
                         <button
                           onClick={() => updateEditorFontSize(Math.max(10, editorFontSize - 2))}
-                          className="pixel-button pixel-button--small"
+                          className="w-10 h-10 rounded-lg bg-retro-panel hover:bg-retro-border/30 border border-retro-border flex items-center justify-center text-lg font-bold"
                         >
                           -
                         </button>
-                        <span className="text-retro-cyan font-bold px-2">{editorFontSize}px</span>
+                        <span className="text-retro-cyan font-bold text-lg w-12 text-center">{editorFontSize}px</span>
                         <button
                           onClick={() => updateEditorFontSize(Math.min(24, editorFontSize + 2))}
-                          className="pixel-button pixel-button--small"
+                          className="w-10 h-10 rounded-lg bg-retro-panel hover:bg-retro-border/30 border border-retro-border flex items-center justify-center text-lg font-bold"
                         >
                           +
                         </button>
@@ -914,89 +1135,84 @@ function EditorPage() {
                   )}
                 </div>
 
-                {/* Copy */}
                 <button
                   onClick={handleCopyCode}
-                  className="pixel-button pixel-button--small hover:bg-retro-cyan/10 transition-all duration-200"
+                  className="icon-button p-2"
                   title="Copy Code"
                 >
-                  <Copy className="w-3 h-3" />
+                  <Copy className="w-4 h-4" />
                 </button>
 
-                {/* Download */}
                 <button
                   onClick={handleDownloadCode}
-                  className="pixel-button pixel-button--small hover:bg-retro-cyan/10 transition-all duration-200"
+                  className="icon-button p-2"
                   title="Download Code"
                 >
-                  <Download className="w-3 h-3" />
+                  <Download className="w-4 h-4" />
                 </button>
 
-                {/* Shortcuts */}
                 <button
                   onClick={() => setShowShortcuts(!showShortcuts)}
-                  className="pixel-button pixel-button--small hover:bg-retro-cyan/10 transition-all duration-200"
+                  className="icon-button p-2"
                   title="Keyboard Shortcuts"
                 >
-                  <Keyboard className="w-3 h-3" />
+                  <Keyboard className="w-4 h-4" />
                 </button>
 
-                {/* Fullscreen */}
-                <button
-                  onClick={toggleFullscreen}
-                  className="pixel-button pixel-button--small hover:bg-retro-cyan/10 transition-all duration-200"
-                  title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                >
-                  {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-                </button>
+                {!isFullscreen && (
+                  <button
+                    onClick={toggleFullscreen}
+                    className="icon-button p-2"
+                    title="Fullscreen"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
 
-                {/* Divider */}
-                <div className="w-px h-4 bg-retro-border/30"></div>
+              {/* Divider */}
+              <div className="w-px h-6 bg-retro-border/30 mx-2"></div>
 
-                {/* Run */}
+              {/* Run & Analyze Buttons */}
+              <div className="flex items-center gap-2">
                 <button
                   id="run-code-button"
                   onClick={handleRunCode}
                   disabled={isRunning || !EXECUTABLE_LANGUAGES.includes(language)}
-                  className={`pixel-button pixel-button--small flex items-center gap-1.5 transition-all duration-200 ${
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all ${
                     EXECUTABLE_LANGUAGES.includes(language)
-                      ? 'bg-emerald-500 hover:bg-emerald-400 border-emerald-500 hover:border-emerald-400 text-white'
-                      : 'opacity-40 cursor-not-allowed'
+                      ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20'
+                      : 'bg-retro-panel text-retro-text/40 border border-retro-border/50 cursor-not-allowed'
                   }`}
-                  title={!EXECUTABLE_LANGUAGES.includes(language) ? `${getCurrentLanguageLabel()} is not executable` : 'Run code'}
                 >
                   {isRunning ? (
                     <>
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      RUNNING
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Running
                     </>
                   ) : (
                     <>
-                      <span className="text-xs">▶</span> RUN
+                      <span className="text-base">▶</span> Run
                     </>
                   )}
                 </button>
 
-                {/* Analyze */}
                 <button
                   id="analyze-code-button"
                   onClick={handleAnalyzeCode}
                   disabled={isAnalyzing || !code.trim()}
-                  className={`pixel-button pixel-button--small flex items-center gap-1.5 transition-all duration-200 ${
-                    code.trim()
-                      ? 'bg-violet-500 hover:bg-violet-400 border-violet-500 hover:border-violet-400 text-white'
-                      : 'opacity-40 cursor-not-allowed'
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all ${
+                    code.trim() ? 'bg-violet-500 hover:bg-violet-400 text-white shadow-lg shadow-violet-500/20' : 'bg-retro-panel text-retro-text/40 border border-retro-border/50 cursor-not-allowed'
                   }`}
-                  title="Analyze code with AI"
                 >
                   {isAnalyzing ? (
                     <>
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ANALYZING
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Analyzing
                     </>
                   ) : (
                     <>
-                      <span className="text-xs">🔍</span> ANALYZE
+                      <span>🔍</span> Analyze
                     </>
                   )}
                 </button>
@@ -1006,98 +1222,284 @@ function EditorPage() {
 
           {/* Keyboard Shortcuts Panel */}
           {showShortcuts && (
-            <div className="bg-retro-panel border-b border-retro-border p-4 animate-slide-down">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[9px]">
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl</kbd> + <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">S</kbd> Save</div>
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl</kbd> + <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">C</kbd> Copy</div>
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl</kbd> + <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Z</kbd> Undo</div>
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl</kbd> + <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">D</kbd> Duplicate Line</div>
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl</kbd> + <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">/</kbd> Toggle Comment</div>
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Alt</kbd> + <kbd className="px-2 py-1 bg-retro-bg rounded border-retro-border">↑/↓</kbd> Move Line</div>
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl</kbd> + <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Space</kbd> Suggestions</div>
-                <div><kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">F11</kbd> Fullscreen</div>
+            <div className="app-panel border-b border-retro-border px-4 py-3 animate-slide-down">
+              <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
+                <span className="text-retro-text/50 uppercase tracking-wider mr-2">Shortcuts:</span>
+                <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl+S</kbd>
+                <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl+Z</kbd>
+                <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl+/</kbd>
+                <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Ctrl+D</kbd>
+                <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">Alt+↑↓</kbd>
+                <kbd className="px-2 py-1 bg-retro-bg rounded border border-retro-border">F11</kbd>
               </div>
             </div>
           )}
 
-          {/* Monaco Editor */}
-          <div className="flex-1 monaco-editor-container relative transition-all duration-300">
-            <Editor
-              height="100%"
-              language={getCurrentMonacoLanguage()}
-              value={code}
-              onChange={handleEditorChange}
-              onMount={handleEditorDidMount}
-              theme={theme === 'dark' ? 'retro-dark' : 'retro-light'}
-              options={{
-                fontSize: editorFontSize,
-                fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
-                fontLigatures: true,
-                minimap: { enabled: true, scale: 1 },
-                wordWrap: 'on',
-                automaticLayout: true,
-                scrollBeyondLastLine: false,
-                renderWhitespace: 'selection',
-                cursorBlinking: 'smooth',
-                cursorSmoothCaretAnimation: 'on',
-                smoothScrolling: true,
-                mouseWheelZoom: true,
-                padding: { top: 16, bottom: 16 },
-                lineHeight: 1.6,
-                letterSpacing: 0.5,
-                cursorStyle: 'line',
-                cursorWidth: 2,
-                tabSize: 2,
-                insertSpaces: true,
-                detectIndentation: true,
-                trimAutoWhitespace: true,
-                formatOnPaste: true,
-                formatOnType: true,
-                folding: true,
-                foldingHighlight: true,
-                showFoldingControls: 'mouseover',
-                lineDecorationsWidth: 0,
-                lineNumbersMinChars: 3,
-                renderLineHighlight: 'all',
-                selectOnLineNumbers: true,
-                roundedSelection: true,
-                readOnly: isPaused,
-                quickSuggestions: true,
-                suggestOnTriggerCharacters: true,
-                acceptSuggestionOnEnter: 'on',
-                snippetSuggestions: 'top',
-              }}
-            />
-            {/* Paused Overlay */}
-            {isPaused && (
-              <div className="absolute inset-0 bg-retro-bg/80 backdrop-blur-md flex items-center justify-center z-10 pointer-events-none animate-fade-in">
-                <div className="bg-retro-surface border-2 border-red-500/50 rounded-lg px-8 py-6 text-center shadow-2xl animate-pulse-slow">
-                  <div className="text-red-400 text-sm font-bold tracking-wider mb-2">⛔ YOU ARE PAUSED</div>
-                  <div className="text-retro-text/60 text-[10px] tracking-wider uppercase">The host has paused your editing</div>
+          {/* Players Bar Above Editor - Desktop Only */}
+          {!isFullscreen && (
+            <div className="hidden lg:flex items-center justify-between px-4 py-2 bg-retro-bg/60 border-b border-retro-border/50">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-xs text-retro-text/60">
+                  <Users className="w-4 h-4 text-retro-cyan" />
+                  <span className="font-bold">{users.length} PLAYER{users.length !== 1 ? 'S' : ''}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {users.slice(0, 6).map((user, idx) => (
+                    <div
+                      key={user.id || idx}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full app-chip"
+                    >
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: user.color || '#3b82f6' }}
+                      />
+                      <span className="text-xs text-retro-text/90">{user.username}</span>
+                      {(user.role === 'owner' || user.isHost) && (
+                        <Crown className="w-3.5 h-3.5 text-retro-yellow" />
+                      )}
+                    </div>
+                  ))}
+                  {users.length > 6 && (
+                    <span className="text-xs text-retro-text/40">+{users.length - 6} more</span>
+                  )}
                 </div>
               </div>
+              
+              {/* Quick Problem Toggle */}
+              {currentProblem && (
+                <button
+                  onClick={() => setShowProblemPanel(!showProblemPanel)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-retro-yellow/10 text-retro-yellow border border-retro-yellow/20 hover:bg-retro-yellow/20 transition-colors text-xs"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span className="font-bold">{currentProblem.title}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Main Editor + Bottom Panels Container */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Monaco Editor */}
+            <div className={`flex-1 monaco-editor-container relative transition-all duration-300 ${showProblemPanel && currentProblem ? 'h-1/2' : 'h-full'}`}>
+              <Editor
+                height="100%"
+                language={getCurrentMonacoLanguage()}
+                value={code}
+                onChange={handleEditorChange}
+                onMount={handleEditorDidMount}
+                theme={theme === 'dark' ? 'retro-dark' : 'retro-light'}
+                options={{
+                  fontSize: editorFontSize,
+                  fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
+                  fontLigatures: true,
+                  minimap: { enabled: window.innerWidth > 768, scale: 1 },
+                  wordWrap: 'on',
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  renderWhitespace: 'selection',
+                  cursorBlinking: 'smooth',
+                  cursorSmoothCaretAnimation: 'on',
+                  smoothScrolling: true,
+                  mouseWheelZoom: true,
+                  padding: { top: 12, bottom: 12 },
+                  lineHeight: 1.6,
+                  letterSpacing: 0.5,
+                  cursorStyle: 'line',
+                  cursorWidth: 2,
+                  tabSize: 2,
+                  insertSpaces: true,
+                  detectIndentation: true,
+                  formatOnPaste: true,
+                  formatOnType: true,
+                  folding: true,
+                  showFoldingControls: 'mouseover',
+                  lineNumbersMinChars: 3,
+                  renderLineHighlight: 'all',
+                  roundedSelection: true,
+                  readOnly: isPaused,
+                  quickSuggestions: true,
+                  suggestOnTriggerCharacters: true,
+                }}
+              />
+              {/* Paused Overlay */}
+              {isPaused && (
+                <div className="absolute inset-0 bg-retro-bg/80 backdrop-blur-md flex items-center justify-center z-10 pointer-events-none">
+                  <div className="bg-retro-surface border-2 border-red-500/50 rounded-xl px-8 py-4 text-center shadow-2xl">
+                    <div className="text-red-400 text-sm font-bold mb-1">⛔ YOU ARE PAUSED</div>
+                    <div className="text-retro-text/60 text-xs">The host has paused your editing</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Problem Panel (Desktop - Bottom Section) */}
+            {showProblemPanel && currentProblem && (
+              <div className="hidden md:block h-56 border-t border-retro-border overflow-hidden">
+                <ProblemPanel
+                  problem={currentProblem}
+                  solvedProblems={solvedProblems}
+                  onSelectProblem={handleSelectProblem}
+                  onSelectRandom={handleSelectRandomProblem}
+                  onResetProblem={handleResetProblem}
+                  isOwner={users.find(u => u.username === username)?.role === 'owner'}
+                  onMarkSolved={handleMarkSolved}
+                />
+              </div>
             )}
+
+            {/* Output & Analysis Panels - Desktop */}
+            <div className="hidden md:block">
+              <OutputPanel
+                result={executionResult}
+                isRunning={isRunning}
+                onClear={handleClearOutput}
+              />
+              <AnalysisPanel
+                analysis={analysisResult}
+                isAnalyzing={isAnalyzing}
+                onClear={handleClearAnalysis}
+              />
+            </div>
           </div>
-
-          {/* Output Panel */}
-          <OutputPanel
-            result={executionResult}
-            isRunning={isRunning}
-            onClear={handleClearOutput}
-          />
-
-          {/* AI Analysis Panel */}
-          <AnalysisPanel
-            analysis={analysisResult}
-            isAnalyzing={isAnalyzing}
-            onClear={handleClearAnalysis}
-          />
         </div>
+
+        {/* Click outside to close settings */}
+        {showSettings && (
+          <div className="fixed inset-0 z-30" onClick={() => setShowSettings(false)} />
+        )}
+
+        {/* Fullscreen Chat Overlay */}
+        {chatFullscreen && (
+          <div className="fixed inset-0 z-50 bg-retro-bg/95 backdrop-blur-sm">
+            <ChatPanel
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+              currentUser={username}
+              onFullscreen={() => setChatFullscreen(false)}
+              isFullscreen={true}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Click outside to close settings */}
-      {showSettings && (
-        <div className="fixed inset-0 z-20" onClick={() => setShowSettings(false)} />
+      {/* Mobile Bottom Navigation Bar */}
+      {!isFullscreen && (
+        <div className="lg:hidden app-header flex items-center justify-around py-3 border-t border-retro-border safe-area-bottom">
+          <button
+            onClick={() => setMobileBottomSheet('users')}
+            className="flex flex-col items-center gap-1 px-5 py-2 rounded-xl hover:bg-retro-surface/70 transition-colors"
+          >
+            <Users className="w-6 h-6 text-retro-cyan" />
+            <span className="text-[9px] text-retro-text/70">Users</span>
+            <span className="text-[8px] text-retro-text/40">{users.length}</span>
+          </button>
+          
+          <button
+            onClick={() => setMobileBottomSheet('problem')}
+            className={`flex flex-col items-center gap-1 px-5 py-2 rounded-xl transition-colors ${currentProblem ? 'text-retro-yellow' : 'text-retro-text/40'}`}
+          >
+            <BookOpen className="w-6 h-6" />
+            <span className="text-[9px]">Problem</span>
+          </button>
+          
+          <button
+            onClick={() => setMobileBottomSheet('output')}
+            className="flex flex-col items-center gap-1 px-5 py-2 rounded-xl hover:bg-retro-surface/70 transition-colors"
+          >
+            <Terminal className="w-6 h-6 text-emerald-400" />
+            <span className="text-[9px] text-retro-text/70">Output</span>
+          </button>
+          
+          <button
+            onClick={() => setMobileBottomSheet('chat')}
+            className="flex flex-col items-center gap-1 px-5 py-2 rounded-xl hover:bg-retro-surface/70 transition-colors"
+          >
+            <MessageSquare className="w-6 h-6 text-retro-cyan" />
+            <span className="text-[9px] text-retro-text/70">Chat</span>
+            <span className="text-[8px] text-retro-text/40">{chatMessages.length}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Bottom Sheets */}
+      {mobileBottomSheet === 'users' && (
+        <div className="lg:hidden fixed bottom-16 left-0 right-0 h-[55vh] app-panel border-t-2 border-retro-cyan/40 rounded-t-3xl z-50 animate-slide-up shadow-2xl">
+          <div className="p-4 border-b border-retro-border/30">
+            <div className="w-12 h-1.5 bg-retro-border/50 rounded-full mx-auto mb-4"></div>
+            <h3 className="text-retro-text text-sm font-bold uppercase tracking-wider text-center">Room Members</h3>
+          </div>
+          <div className="p-4 overflow-y-auto h-[calc(100%-80px)]">
+            <UserList
+              users={users}
+              currentUser={username}
+              isHost={users.find(u => u.username === username)?.isHost}
+              onPauseUser={handlePauseUser}
+              onUnpauseUser={handleUnpauseUser}
+              onKickUser={handleKickUser}
+              onTransferOwnership={handleTransferOwnership}
+              compact
+            />
+          </div>
+        </div>
+      )}
+
+      {mobileBottomSheet === 'problem' && (
+        <div className="lg:hidden fixed bottom-16 left-0 right-0 h-[65vh] app-panel border-t-2 border-retro-yellow/40 rounded-t-3xl z-50 animate-slide-up shadow-2xl">
+          <div className="p-4 border-b border-retro-border/30">
+            <div className="w-12 h-1.5 bg-retro-border/50 rounded-full mx-auto mb-4"></div>
+            <h3 className="text-retro-text text-sm font-bold uppercase tracking-wider text-center">Problem</h3>
+          </div>
+          <div className="overflow-y-auto h-[calc(100%-80px)]">
+            <ProblemPanel
+              problem={currentProblem}
+              solvedProblems={solvedProblems}
+              onSelectProblem={handleSelectProblem}
+              onSelectRandom={handleSelectRandomProblem}
+              onResetProblem={handleResetProblem}
+              isOwner={users.find(u => u.username === username)?.role === 'owner'}
+              onMarkSolved={handleMarkSolved}
+            />
+          </div>
+        </div>
+      )}
+
+      {mobileBottomSheet === 'output' && (
+        <div className="lg:hidden fixed bottom-16 left-0 right-0 h-[55vh] app-panel border-t-2 border-emerald-500/40 rounded-t-3xl z-50 animate-slide-up shadow-2xl">
+          <div className="p-4 border-b border-retro-border/30">
+            <div className="w-12 h-1.5 bg-retro-border/50 rounded-full mx-auto mb-4"></div>
+            <h3 className="text-retro-text text-sm font-bold uppercase tracking-wider text-center">Output</h3>
+          </div>
+          <div className="overflow-y-auto h-[calc(100%-80px)]">
+            <OutputPanel
+              result={executionResult}
+              isRunning={isRunning}
+              onClear={handleClearOutput}
+            />
+            <AnalysisPanel
+              analysis={analysisResult}
+              isAnalyzing={isAnalyzing}
+              onClear={handleClearAnalysis}
+            />
+          </div>
+        </div>
+      )}
+
+      {mobileBottomSheet === 'chat' && (
+        <div className="lg:hidden fixed bottom-16 left-0 right-0 h-[65vh] app-panel border-t-2 border-retro-cyan/40 rounded-t-3xl z-50 animate-slide-up shadow-2xl">
+          <div className="p-4 border-b border-retro-border/30">
+            <div className="w-12 h-1.5 bg-retro-border/50 rounded-full mx-auto mb-4"></div>
+            <h3 className="text-retro-text text-sm font-bold uppercase tracking-wider text-center">Live Chat</h3>
+          </div>
+          <div className="h-[calc(100%-80px)]">
+            <ChatPanel
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+              currentUser={username}
+              isFullscreen={false}
+            />
+          </div>
+        </div>
       )}
     </div>
   )

@@ -4,9 +4,9 @@ function AnalysisPanel({ analysis, isAnalyzing, onClear }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
-    <div className="bg-retro-surface border-t-2 border-retro-border flex flex-col" style={{ minHeight: isCollapsed ? 'auto' : '140px', maxHeight: '350px' }}>
+    <div className="app-panel border-t-2 border-retro-border flex flex-col" style={{ minHeight: isCollapsed ? 'auto' : '140px', maxHeight: '350px' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-retro-border bg-retro-panel">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-retro-border/70 bg-retro-panel/80">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -39,7 +39,7 @@ function AnalysisPanel({ analysis, isAnalyzing, onClear }) {
           {isAnalyzing && (
             <div className="text-retro-text opacity-50 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></div>
-              Gemini is analyzing your code...
+              DeepSeek is analyzing your code through OpenRouter...
             </div>
           )}
 

@@ -7,51 +7,51 @@
 
 @layer base {
   :root {
-    --color-bg: 248 250 252;
+    --color-bg: 246 248 252;
     --color-surface: 255 255 255;
-    --color-panel: 241 245 249;
-    --color-border: 203 213 225;
-    --color-primary: 37 99 235;
-    --color-text: 30 41 59;
-    --color-secondary: 124 58 237;
-    --color-warning: 245 158 11;
+    --color-panel: 237 242 248;
+    --color-border: 180 194 214;
+    --color-primary: 8 126 164;
+    --color-text: 17 24 39;
+    --color-secondary: 111 66 193;
+    --color-warning: 217 119 6;
     --color-success: 16 185 129;
     
-    --color-shadow: rgba(0, 0, 0, 0.1);
-    --color-shadow-light: rgba(0, 0, 0, 0.05);
-    --color-primary-shadow: rgba(37, 99, 235, 0.2);
-    --color-primary-shadow-light: rgba(37, 99, 235, 0.1);
+    --color-shadow: rgba(15, 23, 42, 0.12);
+    --color-shadow-light: rgba(15, 23, 42, 0.06);
+    --color-primary-shadow: rgba(8, 126, 164, 0.24);
+    --color-primary-shadow-light: rgba(8, 126, 164, 0.12);
     
     --color-button-text: 255 255 255;
-    --color-text-secondary: 100 116 139;
-    --color-text-muted: 148 163 184;
+    --color-text-secondary: 71 85 105;
+    --color-text-muted: 100 116 139;
     
-    --color-bg-gradient-start: rgba(59, 130, 246, 0.05);
-    --color-bg-gradient-end: rgba(139, 92, 246, 0.05);
+    --color-bg-gradient-start: rgba(8, 126, 164, 0.08);
+    --color-bg-gradient-end: rgba(217, 119, 6, 0.08);
   }
 
   .dark {
-    --color-bg: 15 23 42;
-    --color-surface: 30 41 59;
-    --color-panel: 51 65 85;
-    --color-border: 71 85 105;
-    --color-primary: 59 130 246;
-    --color-text: 248 250 252;
-    --color-secondary: 139 92 246;
-    --color-warning: 245 158 11;
-    --color-success: 16 185 129;
+    --color-bg: 7 12 24;
+    --color-surface: 15 23 42;
+    --color-panel: 22 33 52;
+    --color-border: 61 76 102;
+    --color-primary: 45 212 191;
+    --color-text: 241 245 249;
+    --color-secondary: 167 139 250;
+    --color-warning: 251 191 36;
+    --color-success: 52 211 153;
     
-    --color-shadow: rgba(0, 0, 0, 0.3);
-    --color-shadow-light: rgba(0, 0, 0, 0.2);
-    --color-primary-shadow: rgba(59, 130, 246, 0.3);
-    --color-primary-shadow-light: rgba(59, 130, 246, 0.2);
+    --color-shadow: rgba(0, 0, 0, 0.4);
+    --color-shadow-light: rgba(0, 0, 0, 0.22);
+    --color-primary-shadow: rgba(45, 212, 191, 0.28);
+    --color-primary-shadow-light: rgba(45, 212, 191, 0.16);
 
     --color-button-text: 248 250 252;
     --color-text-secondary: 203 213 225;
     --color-text-muted: 148 163 184;
     
-    --color-bg-gradient-start: rgba(59, 130, 246, 0.1);
-    --color-bg-gradient-end: rgba(139, 92, 246, 0.1);
+    --color-bg-gradient-start: rgba(45, 212, 191, 0.1);
+    --color-bg-gradient-end: rgba(251, 191, 36, 0.08);
   }
 }
 
@@ -75,6 +75,20 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, var(--color-bg-gradient-start), transparent 32%, var(--color-bg-gradient-end)),
+    radial-gradient(circle at top left, rgba(var(--color-primary) / 0.09), transparent 34rem),
+    linear-gradient(rgba(var(--color-border) / 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--color-border) / 0.12) 1px, transparent 1px);
+  background-size: auto, auto, 36px 36px, 36px 36px;
 }
 
 /* Smooth animations */
@@ -154,20 +168,20 @@ body {
 .pixel-button {
   font-family: 'Press Start 2P', cursive;
   font-size: 9px;
-  background: rgb(var(--color-surface));
+  background: linear-gradient(180deg, rgb(var(--color-surface)), rgb(var(--color-panel)));
   color: rgb(var(--color-text));
-  border: 2px solid rgb(var(--color-border));
-  border-radius: 6px;
+  border: 1px solid rgba(var(--color-border) / 0.9);
+  border-radius: 8px;
   padding: 12px 20px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
   text-transform: uppercase;
-  box-shadow: 0 2px 4px var(--color-shadow), 0 1px 2px var(--color-shadow-light);
+  box-shadow: 0 8px 18px -14px var(--color-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   position: relative;
   overflow: hidden;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
 }
 
 .pixel-button::before {
@@ -191,10 +205,10 @@ body {
 }
 
 .pixel-button:hover {
-  background: rgb(var(--color-panel));
+  background: linear-gradient(180deg, rgb(var(--color-surface)), rgba(var(--color-primary) / 0.08));
   border-color: rgb(var(--color-primary));
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px -1px var(--color-shadow), 0 2px 4px -1px var(--color-shadow-light), 0 0 20px var(--color-primary-shadow-light);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px -16px var(--color-shadow), 0 0 0 3px var(--color-primary-shadow-light);
 }
 
 .pixel-button:active {
@@ -213,16 +227,16 @@ body {
 
 /* Button Variants */
 .pixel-button--cyan {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, #0f766e 100%);
+  border-color: rgb(var(--color-primary));
   color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 14px 30px -18px var(--color-primary-shadow);
 }
 
 .pixel-button--cyan:hover {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-  border-color: #60a5fa;
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, #14b8a6 0%, rgb(var(--color-primary)) 100%);
+  border-color: #14b8a6;
+  box-shadow: 0 16px 34px -18px var(--color-primary-shadow), 0 0 0 3px var(--color-primary-shadow-light);
 }
 
 .pixel-button--magenta {
@@ -260,16 +274,17 @@ body {
 .pixel-input {
   font-family: 'Press Start 2P', cursive;
   font-size: 10px;
-  background: rgb(var(--color-bg));
+  background: rgba(var(--color-surface) / 0.92);
   color: rgb(var(--color-text));
-  border: 2px solid rgb(var(--color-border));
-  border-radius: 6px;
+  border: 1px solid rgba(var(--color-border) / 0.9);
+  border-radius: 8px;
   padding: 12px 16px;
   outline: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 18px -18px var(--color-shadow);
 }
 
 .pixel-input::placeholder {
@@ -278,7 +293,7 @@ body {
 
 .pixel-input:focus {
   border-color: rgb(var(--color-primary));
-  box-shadow: 0 0 0 3px var(--color-primary-shadow-light), 0 2px 8px var(--color-shadow);
+  box-shadow: 0 0 0 3px var(--color-primary-shadow-light), 0 10px 22px -18px var(--color-shadow);
   background: rgb(var(--color-surface));
 }
 
@@ -288,21 +303,63 @@ body {
 
 /* Professional Panel Styles */
 .pixel-panel {
-  background: rgb(var(--color-surface));
-  border: 2px solid rgb(var(--color-border));
-  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(var(--color-surface) / 0.96), rgba(var(--color-panel) / 0.88));
+  border: 1px solid rgba(var(--color-border) / 0.9);
+  border-radius: 14px;
   padding: 28px;
-  box-shadow: 0 4px 12px var(--color-shadow), 0 2px 6px var(--color-shadow-light);
+  box-shadow: 0 24px 60px -40px var(--color-shadow), 0 8px 20px -18px var(--color-shadow-light), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .pixel-panel:hover {
-  box-shadow: 0 8px 24px var(--color-shadow), 0 4px 8px var(--color-shadow-light);
+  box-shadow: 0 28px 70px -42px var(--color-shadow), 0 0 0 3px var(--color-primary-shadow-light);
   border-color: rgb(var(--color-primary));
 }
 
-.pixel-panel:hover {
-  box-shadow: 0 8px 16px -2px var(--color-shadow), 0 4px 6px -2px var(--color-shadow-light);
+.app-header {
+  background: rgba(var(--color-surface) / 0.92);
+  border-bottom: 1px solid rgba(var(--color-border) / 0.9);
+  box-shadow: 0 10px 28px -24px var(--color-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.app-surface {
+  background: rgba(var(--color-surface) / 0.96);
+  border-color: rgba(var(--color-border) / 0.82);
+}
+
+.app-panel {
+  background: linear-gradient(180deg, rgba(var(--color-surface) / 0.98), rgba(var(--color-panel) / 0.88));
+  border: 1px solid rgba(var(--color-border) / 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.app-chip {
+  background: rgba(var(--color-panel) / 0.82);
+  border: 1px solid rgba(var(--color-border) / 0.78);
+  color: rgb(var(--color-text));
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  color: rgba(var(--color-text) / 0.72);
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.icon-button:hover {
+  color: rgb(var(--color-text));
+  background: rgba(var(--color-panel) / 0.78);
+  border-color: rgba(var(--color-border) / 0.7);
+}
+
+.theme-card {
+  background: rgba(var(--color-surface) / 0.78);
+  border: 1px solid rgba(var(--color-border) / 0.62);
+  box-shadow: 0 16px 38px -34px var(--color-shadow);
 }
 
 .pixel-panel--dark {
@@ -391,7 +448,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--color-panel));
+  background: rgb(var(--color-primary));
 }
 
 /* Custom scrollbar for overflow containers */
@@ -414,10 +471,11 @@ body {
 
 /* Monaco Editor Container */
 .monaco-editor-container {
-  border: none !important;
+  border: 1px solid rgba(var(--color-border) / 0.75) !important;
   border-radius: 0;
   overflow: hidden;
   transition: all 0.3s ease;
+  background: rgb(var(--color-surface));
 }
 
 /* Selection and focus utilities */
@@ -459,7 +517,7 @@ kbd {
 
 /* Glass morphism effect */
 .glass {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--color-surface) / 0.72);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -470,4 +528,15 @@ kbd {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Safe area for mobile devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Mobile bottom sheet rounded top corners */
+.rounded-t-2xl {
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
 }

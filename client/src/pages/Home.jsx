@@ -83,12 +83,11 @@ function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-retro-bg font-pixel overflow-hidden">
+    <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-retro-bg font-pixel overflow-hidden">
       {/* Animated Background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-retro-cyan/5 via-transparent to-retro-accent/5"></div>
-        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-retro-cyan/10 rounded-full mix-blend-screen filter blur-[120px] animate-pulse-slow"></div>
-        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-retro-accent/10 rounded-full mix-blend-screen filter blur-[120px] animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(var(--color-primary)/0.08),transparent_40%,rgba(var(--color-warning)/0.08))]"></div>
+        <div className="absolute inset-0 opacity-[0.18] bg-[linear-gradient(rgba(var(--color-border)/0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(var(--color-border)/0.45)_1px,transparent_1px)] bg-[size:42px_42px]"></div>
       </div>
 
       {/* Theme Toggle Top Right */}
@@ -101,14 +100,12 @@ function Home() {
         <div className="flex items-center justify-center mb-5">
           <div className="relative">
             <Gamepad2 className="w-12 h-12 text-retro-cyan animate-pulse" />
-            <div className="absolute inset-0 w-12 h-12 bg-retro-cyan/20 rounded-full blur-xl"></div>
           </div>
-          <h1 className="text-retro-text text-2xl md:text-3xl font-bold tracking-wider mx-4">
-            CODE SYNC
+          <h1 className="text-retro-text text-lg sm:text-2xl md:text-3xl font-bold tracking-wider mx-4 leading-relaxed max-w-[16rem] sm:max-w-none">
+            Collaborative Platform
           </h1>
           <div className="relative">
             <Gamepad2 className="w-12 h-12 text-retro-accent animate-pulse" style={{ animationDelay: '0.5s' }} />
-            <div className="absolute inset-0 w-12 h-12 bg-retro-accent/20 rounded-full blur-xl"></div>
           </div>
         </div>
         <p className="text-retro-text/60 text-sm tracking-widest mt-4">
@@ -221,7 +218,7 @@ function Home() {
                 <button
                   onClick={handleCreateRoom}
                   disabled={isLoading}
-                  className="pixel-button w-full py-4 text-xs"
+                  className="pixel-button pixel-button--cyan w-full py-4 text-xs"
                 >
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -235,7 +232,7 @@ function Home() {
                 <button
                   onClick={() => setShowJoinRoom(true)}
                   disabled={isLoading}
-                  className="pixel-button pixel-button--cyan w-full py-4 text-xs"
+                  className="pixel-button pixel-button--magenta w-full py-4 text-xs"
                 >
                   JOIN ROOM
                 </button>
@@ -294,25 +291,25 @@ function Home() {
       <div className="mt-12 text-center max-w-3xl z-10 w-full px-4 animate-fade-in" style={{ animationDelay: '0.2s' }}>
         <h2 className="text-retro-text text-sm uppercase tracking-widest mb-6 opacity-80">FEATURES</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-retro-surface/50 border border-retro-border/20 rounded-lg p-5 backdrop-blur-sm hover:bg-retro-surface/70 hover:border-retro-cyan/30 hover:-translate-y-1 transition-all duration-300">
+          <div className="theme-card rounded-lg p-5 backdrop-blur-sm hover:border-retro-cyan/50 hover:-translate-y-1 transition-all duration-300">
             <div className="w-12 h-12 bg-retro-cyan/10 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Users className="w-6 h-6 text-retro-cyan" />
             </div>
             <p className="text-retro-text/80 text-xs uppercase tracking-wider">Real-time Sync</p>
           </div>
-          <div className="bg-retro-surface/50 border border-retro-border/20 rounded-lg p-5 backdrop-blur-sm hover:bg-retro-surface/70 hover:border-retro-accent/30 hover:-translate-y-1 transition-all duration-300">
+          <div className="theme-card rounded-lg p-5 backdrop-blur-sm hover:border-retro-accent/50 hover:-translate-y-1 transition-all duration-300">
             <div className="w-12 h-12 bg-retro-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Code className="w-6 h-6 text-retro-accent" />
             </div>
             <p className="text-retro-text/80 text-xs uppercase tracking-wider">8+ Languages</p>
           </div>
-          <div className="bg-retro-surface/50 border border-retro-border/20 rounded-lg p-5 backdrop-blur-sm hover:bg-retro-surface/70 hover:border-emerald-500/30 hover:-translate-y-1 transition-all duration-300">
+          <div className="theme-card rounded-lg p-5 backdrop-blur-sm hover:border-emerald-500/50 hover:-translate-y-1 transition-all duration-300">
             <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-6 h-6 text-emerald-500" />
             </div>
             <p className="text-retro-text/80 text-xs uppercase tracking-wider">AI Analysis</p>
           </div>
-          <div className="bg-retro-surface/50 border border-retro-border/20 rounded-lg p-5 backdrop-blur-sm hover:bg-retro-surface/70 hover:border-amber-500/30 hover:-translate-y-1 transition-all duration-300">
+          <div className="theme-card rounded-lg p-5 backdrop-blur-sm hover:border-amber-500/50 hover:-translate-y-1 transition-all duration-300">
             <div className="w-12 h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Terminal className="w-6 h-6 text-amber-500" />
             </div>
@@ -363,7 +360,7 @@ function Home() {
       {/* Footer */}
       <div className="mt-10 text-center text-retro-text/30 text-[9px] z-10 tracking-widest">
         <p>BUILT WITH PASSION FOR COLLABORATION</p>
-        <p className="mt-2">&copy; {new Date().getFullYear()} CODE SYNC</p>
+        <p className="mt-2">&copy; {new Date().getFullYear()} Collaborative Platform</p>
       </div>
     </div>
   )
